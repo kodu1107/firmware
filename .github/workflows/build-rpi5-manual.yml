@@ -1,0 +1,17 @@
+name: Build Raspberry Pi 5 SD images
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-rpi5:
+    name: Build Raspberry Pi 5 images
+    uses: ./.github/workflows/build-firmware.yml
+    with:
+      board: ekh-bcm2712
+      target: bcm27xx
+      subtarget: bcm2712
+      description: "Raspberry Pi 5 with Seeed WM1302 Pi HAT and Wio-WM6108 (SPI)"
