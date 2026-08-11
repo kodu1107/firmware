@@ -66,12 +66,14 @@ jobs:
             dl
             staging_dir/host
             staging_dir/hostpkg
-            staging_dir/toolchain-*
             build_dir/host
             build_dir/hostpkg
-          key: ${{ inputs.board }}-${{ runner.os }}-${{ hashFiles('feeds.conf.default') }}
+          # Do not cache target toolchains without their matching build tree.
+          # Restoring only staging_dir/toolchain-* can mix stale musl headers
+          # into a clean binutils rebuild (for example, off64_t failures).
+          key: host-v2-${{ inputs.board }}-${{ runner.os }}-${{ hashFiles('feeds.conf.default') }}
           restore-keys: |
-            ${{ inputs.board }}-${{ runner.os }}-
+            host-v2-${{ inputs.board }}-${{ runner.os }}-
 
       - name: Configure build for ${{ inputs.board }}
         run: |
