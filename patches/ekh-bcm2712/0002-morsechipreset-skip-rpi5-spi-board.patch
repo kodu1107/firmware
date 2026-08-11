@@ -1,0 +1,29 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: OpenMANET Pi 5 port <noreply@openmanet.local>
+Date: Tue, 11 Aug 2026 00:00:00 +0000
+Subject: [PATCH] morse-bundle: skip SDIO reset helper on Pi 5 SPI board
+
+The helper locates MM_RESET through gpio-line-names and then unbinds an
+SDIO host. Neither operation is appropriate for the RP1 SPI-connected
+MM6108 used by bcm2712,mm6108-spi.
+---
+ hardware/morse-bundle/files/etc/init.d/morsechipreset | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/feeds/morse/hardware/morse-bundle/files/etc/init.d/morsechipreset b/feeds/morse/hardware/morse-bundle/files/etc/init.d/morsechipreset
+--- a/feeds/morse/hardware/morse-bundle/files/etc/init.d/morsechipreset
++++ b/feeds/morse/hardware/morse-bundle/files/etc/init.d/morsechipreset
+@@ -8,5 +8,10 @@ START=09
+ 
+ 
+ boot() {
++	if [ "$(cat /tmp/sysinfo/board_name 2>/dev/null)" = "bcm2712,mm6108-spi" ]; then
++		# This reset helper is for SDIO-attached Morse devices.
++		return 0
++	fi
++
+ 	/morse/scripts/chipreset.sh > /dev/kmsg 2>&1
+ }
+-- 
+2.51.0
+

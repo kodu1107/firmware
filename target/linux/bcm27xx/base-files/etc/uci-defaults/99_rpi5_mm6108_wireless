@@ -1,0 +1,136 @@
+#!/bin/sh
+
+. /lib/functions.sh
+
+[ "$(board_name)" = "bcm2712,mm6108-spi" ] || exit 0
+
+# Populate wireless sections after every driver has registered its PHY. The
+# Morse detector owns HaLow devices; mac80211 must not manage the same path.
+wifi config >/dev/null 2>&1
+
+morse_device=
+morse_path=
+morse_iface=
+duplicate_devices=
+
+find_morse_device() {
+	local section="$1"
+	local type path
+
+	config_get type "$section" type
+	[ "$type" = "morse" ] || return
+
+	config_get path "$section" path
+	morse_device="$section"
+	morse_path="$path"
+}
+
+find_morse_iface() {
+	local section="$1"
+	local device
+
+	config_get device "$section" device
+	[ "$device" = "$morse_device" ] && morse_iface="$section"
+}
+
+collect_duplicate_device() {
+	local section="$1"
+	local type path
+
+	config_get type "$section" type
+	config_get path "$section" path
+	[ "$type" = "mac80211" ] || return
+	[ -n "$morse_path" ] && [ "$path" = "$morse_path" ] || return
+
+	append duplicate_devices "$section"
+}
+
+delete_iface_for_device() {
+	local section="$1"
+	local device
+
+	config_get device "$section" device
+	[ "$device" = "$duplicate_device" ] && uci -q delete wireless."$section"
+}
+
+config_load wireless
+config_foreach find_morse_device wifi-device
+
+if [ -z "$morse_device" ]; then
+	logger -t rpi5-mm6108 "Morse wifi-device was not detected"
+	# Keep this uci-defaults script so the next boot can retry after the PHY
+	# becomes available.
+	exit 1
+fi
+
+config_foreach find_morse_iface wifi-iface
+config_foreach collect_duplicate_device wifi-device
+
+for duplicate_device in $duplicate_devices; do
+	config_foreach delete_iface_for_device wifi-iface
+	uci -q delete wireless."$duplicate_device"
+done
+
+if [ -z "$morse_iface" ]; then
+	morse_iface="default_${morse_device}"
+	uci set wireless."$morse_iface"=wifi-iface
+fi
+
+config_get autoconfig_done "$morse_device" openmanet_autoconfig_done
+config_get configured_disabled "$morse_device" disabled 1
+config_get configured_country "$morse_device" country
+config_get configured_key "$morse_iface" key
+
+if [ "$autoconfig_done" = "1" ] || {
+	[ "$configured_disabled" = "0" ] &&
+	[ -n "$configured_country" ] &&
+	[ -n "$configured_key" ]
+}; then
+	uci set wireless."$morse_device".openmanet_autoconfig_done='1'
+	uci commit wireless
+	logger -t rpi5-mm6108 "preserved existing ${morse_device} configuration"
+	exit 0
+fi
+
+password_file=/root/halow-password.txt
+if [ ! -s "$password_file" ]; then
+	umask 077
+	tr -d '-' < /proc/sys/kernel/random/uuid > "$password_file"
+fi
+chmod 600 "$password_file"
+halow_key="$(cat "$password_file")"
+
+mac_suffix="$(awk -F: '{ print toupper($4 $5 $6) }' /sys/class/net/eth0/address)"
+[ -n "$mac_suffix" ] || mac_suffix='MM6108'
+
+uci set wireless."$morse_device".type='morse'
+uci set wireless."$morse_device".band='s1g'
+uci set wireless."$morse_device".hwmode='11ah'
+uci set wireless."$morse_device".country='KR'
+uci set wireless."$morse_device".channel='10'
+uci set wireless."$morse_device".s1g_chanbw='2'
+uci set wireless."$morse_device".op_class='15'
+uci set wireless."$morse_device".bcf='bcf_fgh100mhaamd.bin'
+uci set wireless."$morse_device".enable_mcast_whitelist='0'
+uci set wireless."$morse_device".enable_mcast_rate_control='1'
+uci set wireless."$morse_device".enable_ps='0'
+uci set wireless."$morse_device".enable_dynamic_ps_offload='0'
+uci set wireless."$morse_device".enable_twt='0'
+uci set wireless."$morse_device".disabled='0'
+uci set wireless."$morse_device".openmanet_autoconfig_done='1'
+
+uci set wireless."$morse_iface".device="$morse_device"
+uci set wireless."$morse_iface".network='lan'
+uci set wireless."$morse_iface".mode='ap'
+uci set wireless."$morse_iface".wds='1'
+uci set wireless."$morse_iface".ssid="OpenMANET-HaLow-${mac_suffix}"
+uci set wireless."$morse_iface".encryption='sae'
+uci set wireless."$morse_iface".key="$halow_key"
+uci set wireless."$morse_iface".disabled='0'
+
+uci commit wireless
+unset halow_key
+
+logger -t rpi5-mm6108 "configured ${morse_device} for KR HaLow channel 10"
+
+exit 0

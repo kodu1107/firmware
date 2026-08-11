@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: OpenMANET Pi 5 port <noreply@openmanet.local>
+Date: Tue, 11 Aug 2026 00:00:00 +0000
+Subject: [PATCH] wifi-scripts: skip Morse HaLow devices in mac80211
+
+Prevent mac80211.uc from creating a duplicate radio configuration for
+Morse HaLow devices. These devices are managed by morse.sh.
+---
+ package/network/config/wifi-scripts/files/lib/wifi/mac80211.uc | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/package/network/config/wifi-scripts/files/lib/wifi/mac80211.uc b/package/network/config/wifi-scripts/files/lib/wifi/mac80211.uc
+--- a/package/network/config/wifi-scripts/files/lib/wifi/mac80211.uc
++++ b/package/network/config/wifi-scripts/files/lib/wifi/mac80211.uc
+@@ -36,6 +36,10 @@ for (let phy_name, phy in board.wlan) {
+ 	if (!info || !length(info.bands))
+ 		continue;
+ 
++	/* Morse HaLow devices are configured by /lib/wifi/morse.sh. */
++	if (match(readfile(`/sys/class/ieee80211/${phy_name}/device/uevent`) ?? "", /DRIVER=morse/))
++		continue;
++
+ 	let radios = length(info.radios) > 0 ? info.radios : [{ bands: info.bands }];
+ 	for (let radio in radios) {
+ 		while (config[`radio${idx}`])
+-- 
+2.51.0
+

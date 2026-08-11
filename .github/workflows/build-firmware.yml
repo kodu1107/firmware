@@ -79,6 +79,16 @@ jobs:
         run: |
           ./scripts/openmanet_setup.sh -i -b ${{ inputs.board }}
 
+      - name: Verify Raspberry Pi 5 MM6108 port configuration
+        if: inputs.board == 'ekh-bcm2712'
+        run: |
+          grep -qx 'CONFIG_SPI_DESIGNWARE=y' target/linux/bcm27xx/bcm2712/config-6.6
+          grep -qx 'CONFIG_SPI_DW_MMIO=y' target/linux/bcm27xx/bcm2712/config-6.6
+          grep -q 'DRIVER=morse' package/network/config/wifi-scripts/files/lib/wifi/mac80211.uc
+          grep -q 'bcm2712,mm6108-spi' feeds/morse/hardware/morse-bundle/files/etc/init.d/morsechipreset
+          grep -q '1f00050000.spi' feeds/openmanet/boards/bsp-bcm271x/files/etc/init.d/gpsboard.init
+          test -f target/linux/bcm27xx/base-files/etc/uci-defaults/99_rpi5_mm6108_wireless
+
       - name: Download dependencies
         run: |
           make download -j$(nproc)
