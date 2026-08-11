@@ -6,14 +6,13 @@ Subject: [PATCH] bcm27xx: (APP-3660) Create separate SPI device tree overlay
 
 --- /dev/null
 +++ b/arch/arm/boot/dts/overlays/mm610x-spi-overlay.dts
-@@ -0,0 +1,81 @@
+@@ -0,0 +1,80 @@
 +/dts-v1/;
 +/plugin/;
 +
 +/ {
 +	compatible = "brcm,bcm2835", "brcm,bcm2836", "brcm,bcm2837",
-+	             "brcm,bcm2708", "brcm,bcm2709", "brcm,bcm2710", "brcm,bcm2711",
-+	             "brcm,bcm2712";
++	             "brcm,bcm2708", "brcm,bcm2709", "brcm,bcm2710", "brcm,bcm2711";
 +
 +	fragment@0 {
 +		target = <&spi0>;

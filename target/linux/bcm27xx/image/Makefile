@@ -6,7 +6,7 @@
 include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/image.mk
 
-DEVICE_VARS += SYSINFO_MODEL SYSINFO_BOARD_NAME DISTROCONFIG_EXTRA
+DEVICE_VARS += SYSINFO_MODEL SYSINFO_BOARD_NAME DISTROCONFIG_EXTRA PI5_DTO_OVERLAY
 
 FAT32_BLOCK_SIZE=1024
 FAT32_BLOCKS=$(shell echo $$(($(CONFIG_TARGET_KERNEL_PARTSIZE)*1024*1024/$(FAT32_BLOCK_SIZE))))
@@ -79,6 +79,14 @@ define Build/boot-ekh01
 
 	echo -e '\ndtoverlay=sysinfo,board-name="$(SYSINFO_BOARD_NAME)",model="$(SYSINFO_MODEL)"' | cat boards/ekh01/distroconfig.txt boards/ekh01/distroconfig-$(DISTROCONFIG_EXTRA).txt - | mcopy -o -i $@.boot - ::/distroconfig.txt
 
+endef
+
+define Build/boot-ekh01-pi5
+	# Pi 5 firmware did not apply the product overlays from the included
+	# distroconfig.txt during hardware testing. Keep the Pi 5 base settings in
+	# distroconfig.txt, but place the product overlays directly in config.txt.
+	mcopy -o -i $@.boot boards/ekh01/distroconfig-pi5.txt ::/distroconfig.txt
+	echo -e '\n[all]\ndtoverlay=$(PI5_DTO_OVERLAY)\ndtoverlay=sysinfo,board-name="$(SYSINFO_BOARD_NAME)",model="$(SYSINFO_MODEL)"' | cat config.txt - | mcopy -o -i $@.boot - ::/config.txt
 endef
 
 define Build/sdcard-img
@@ -342,7 +350,9 @@ define Device/bcm2712_mm6108-spi
   DEVICE_VARIANT := SPI
   SYSINFO_MODEL := $$(DEVICE_VENDOR) $$(DEVICE_MODEL) ($$(DEVICE_VARIANT))
   SUPPORTED_DEVICES += bcm2712,mm6108-spi
-  DISTROCONFIG_EXTRA := mm610x-spi
+  PI5_DTO_OVERLAY := mm610x-spi-pi5
+  IMAGE/sysupgrade.img.gz := boot-common | boot-ekh01-pi5 | sdcard-img | gzip | append-metadata
+  IMAGE/factory.img.gz := boot-common | boot-ekh01-pi5 | sdcard-img | gzip
 endef
 ifeq ($(SUBTARGET),bcm2712)
   TARGET_DEVICES += bcm2712_mm6108-spi
