@@ -4,6 +4,11 @@
 
 [ "$(board_name)" = "bcm2712,mm6108-spi" ] || exit 0
 
+# Direct 802.11s peer entries can remain stuck in HWMP resolution while
+# BATMAN_V broadcast OGMs continue to pass.  Enable the Pi 5 service which
+# repairs only unusable direct-neighbour paths and keeps the Morse MTU at 1532.
+[ ! -x /etc/init.d/rpi5-mpath-fix ] || /etc/init.d/rpi5-mpath-fix enable
+
 # Populate wireless sections after every driver has registered its PHY. The
 # Morse detector owns HaLow devices; mac80211 must not manage the same path.
 wifi config >/dev/null 2>&1

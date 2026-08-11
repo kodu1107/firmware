@@ -88,6 +88,9 @@ jobs:
           grep -q 'bcm2712,mm6108-spi' feeds/morse/hardware/morse-bundle/files/etc/init.d/morsechipreset
           grep -q '1f00050000.spi' feeds/openmanet/boards/bsp-bcm271x/files/etc/init.d/gpsboard.init
           test -f target/linux/bcm27xx/base-files/etc/uci-defaults/99_rpi5_mm6108_wireless
+          test -x target/linux/bcm27xx/base-files/usr/sbin/rpi5-mpath-fix
+          test -x target/linux/bcm27xx/base-files/etc/init.d/rpi5-mpath-fix
+          grep -q 'mpath new' target/linux/bcm27xx/base-files/usr/sbin/rpi5-mpath-fix
 
       - name: Download dependencies
         run: |

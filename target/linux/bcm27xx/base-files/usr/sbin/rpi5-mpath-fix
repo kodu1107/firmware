@@ -1,0 +1,93 @@
+#!/bin/sh
+
+# Work around stale 802.11s HWMP entries seen with the MM6108 SPI radio on
+# Raspberry Pi 5.  BATMAN_V receives broadcast OGMs while unicast traffic is
+# queued behind an unresolved direct-neighbour path.  Replace only unusable
+# paths for established direct mesh peers; leave healthy and multi-hop paths
+# untouched.
+
+INTERVAL="${RPI5_MPATH_FIX_INTERVAL:-5}"
+MTU="${RPI5_MPATH_FIX_MTU:-1532}"
+TAG="rpi5-mpath-fix"
+
+find_mesh_iface() {
+	iw dev 2>/dev/null | awk '
+		$1 == "Interface" { iface = $2 }
+		$1 == "type" && $2 == "mesh" && $3 == "point" {
+			print iface
+			exit
+		}
+	'
+}
+
+established_peers() {
+	local iface="$1"
+
+	iw dev "$iface" station dump 2>/dev/null | awk '
+		$1 == "Station" { peer = $2 }
+		$1 == "mesh" && $2 == "plink:" && $3 == "ESTAB" && peer != "" {
+			print peer
+		}
+	'
+}
+
+path_is_usable() {
+	local iface="$1"
+	local peer="$2"
+	local state d_ret flags flags_value
+
+	state="$(iw dev "$iface" mpath dump 2>/dev/null | awk -v peer="$peer" '
+		tolower($1) == tolower(peer) { print $9, $10; exit }
+	')"
+	set -- $state
+	d_ret="$1"
+	flags="$2"
+
+	case "$flags" in
+		0x*) flags_value=$((flags)) ;;
+		*) return 1 ;;
+	esac
+
+	# Bit 0 is MESH_PATH_ACTIVE.  A non-zero discovery retry counter was
+	# observed on paths which claimed to be active after `mpath set` but still
+	# returned Destination Host Unreachable.
+	[ $((flags_value & 1)) -ne 0 ] && [ "${d_ret:-1}" -eq 0 ]
+}
+
+replace_direct_path() {
+	local iface="$1"
+	local peer="$2"
+
+	iw dev "$iface" mpath del "$peer" >/dev/null 2>&1 || true
+	if iw dev "$iface" mpath new "$peer" next_hop "$peer" >/dev/null 2>&1; then
+		logger -t "$TAG" "activated direct mesh path on ${iface} to ${peer}"
+	else
+		logger -t "$TAG" -p daemon.warn \
+			"failed to activate direct mesh path on ${iface} to ${peer}"
+	fi
+}
+
+last_iface=
+
+while :; do
+	iface="$(find_mesh_iface)"
+	if [ -z "$iface" ] || [ ! -d "/sys/class/net/$iface" ]; then
+		sleep "$INTERVAL"
+		continue
+	fi
+
+	if [ "$iface" != "$last_iface" ]; then
+		logger -t "$TAG" "monitoring mesh interface ${iface}"
+		last_iface="$iface"
+	fi
+
+	if [ "$(cat "/sys/class/net/$iface/mtu" 2>/dev/null)" != "$MTU" ]; then
+		ip link set dev "$iface" mtu "$MTU" >/dev/null 2>&1 || true
+	fi
+
+	for peer in $(established_peers "$iface"); do
+		path_is_usable "$iface" "$peer" || replace_direct_path "$iface" "$peer"
+	done
+
+	sleep "$INTERVAL"
+done
