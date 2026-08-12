@@ -8,9 +8,6 @@ disable_overscan=1
 # Keep the primary UART available for recovery and hardware debugging.
 enable_uart=1
 
-# Enable the Pi 5 KMS display pipeline for the HDMI console.
-dtoverlay=vc4-kms-v3d-pi5
-
 # The Pi 5 product overlays are written directly to config.txt by
 # Build/boot-ekh01-pi5. Do not enable the legacy BCM283x SPI controller here;
 # the MM6108 overlay enables the RP1 SPI controller used by the 40-pin header.
