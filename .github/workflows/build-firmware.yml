@@ -91,6 +91,13 @@ jobs:
           test -x target/linux/bcm27xx/base-files/usr/sbin/rpi5-mpath-fix
           test -x target/linux/bcm27xx/base-files/etc/init.d/rpi5-mpath-fix
           grep -q 'mpath new' target/linux/bcm27xx/base-files/usr/sbin/rpi5-mpath-fix
+          grep -qx 'CONFIG_PACKAGE_kmod-drm-vc4=y' boards/ekh-bcm2712/target_diffconfig
+          grep -qx 'hdmi_force_hotplug=1' target/linux/bcm27xx/image/boards/ekh01/distroconfig-pi5.txt
+          grep -qx 'hdmi_group=1' target/linux/bcm27xx/image/boards/ekh01/distroconfig-pi5.txt
+          grep -qx 'hdmi_mode=16' target/linux/bcm27xx/image/boards/ekh01/distroconfig-pi5.txt
+          grep -qx 'hdmi_drive=2' target/linux/bcm27xx/image/boards/ekh01/distroconfig-pi5.txt
+          grep -qw 'consoleblank=0' target/linux/bcm27xx/image/cmdline.txt
+          ! grep -q '^dtoverlay=vc4-kms-v3d-pi5' target/linux/bcm27xx/image/boards/ekh01/distroconfig-pi5.txt
 
       - name: Download dependencies
         run: |
