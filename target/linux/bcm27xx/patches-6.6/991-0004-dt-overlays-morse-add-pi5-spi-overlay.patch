@@ -1,0 +1,81 @@
+--- /dev/null
++++ b/arch/arm/boot/dts/overlays/mm610x-spi-pi5-overlay.dts
+@@ -0,0 +1,78 @@
++/dts-v1/;
++/plugin/;
++
++/ {
++	compatible = "brcm,bcm2712";
++
++	fragment@0 {
++		target = <&spi0>;
++		__overlay__ {
++			pinctrl-names = "default";
++			pinctrl-0 = <&spi0_pins &morse_spi0_cs
++				&morse_wake &morse_busy &morse_irq &morse_reset>;
++			cs-gpios = <&gpio 8 1>;
++			#address-cells = <1>;
++			#size-cells = <0>;
++			status = "okay";
++
++			mm6108: mm6108@0 {
++				compatible = "morse,mm610x-spi";
++				reg = <0>;
++				/* WM1302 Pi HAT mini-PCIe pin 22 */
++				reset-gpios = <&gpio 17 0>;
++				/* mini-PCIe pins 33 (WAKE) and 31 (BUSY) */
++				power-gpios = <&gpio 23 0>, <&gpio 24 0>;
++				/* mini-PCIe pin 10 (INT) */
++				spi-irq-gpios = <&gpio 5 0>;
++				spi-max-frequency = <50000000>;
++				status = "okay";
++			};
++
++			spidev@0 {
++				reg = <0>;
++				status = "disabled";
++			};
++
++			spidev@1 {
++				reg = <1>;
++				status = "disabled";
++			};
++		};
++	};
++
++	fragment@1 {
++		target = <&gpio>;
++		__overlay__ {
++			/* RP1 pinctrl uses generic function/pins properties. */
++			morse_spi0_cs: morse_spi0_cs {
++				function = "gpio";
++				pins = "gpio8";
++				bias-pull-up;
++			};
++
++			morse_wake: morse_wake {
++				function = "gpio";
++				pins = "gpio23";
++				bias-pull-up;
++			};
++
++			morse_busy: morse_busy {
++				function = "gpio";
++				pins = "gpio24";
++				bias-pull-down;
++			};
++
++			morse_irq: morse_irq {
++				function = "gpio";
++				pins = "gpio5";
++				bias-pull-up;
++			};
++
++			morse_reset: morse_reset {
++				function = "gpio";
++				pins = "gpio17";
++				bias-pull-up;
++			};
++		};
++	};
++};

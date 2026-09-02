@@ -6,7 +6,7 @@
 include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/image.mk
 
-DEVICE_VARS += SYSINFO_MODEL SYSINFO_BOARD_NAME DISTROCONFIG_EXTRA
+DEVICE_VARS += SYSINFO_MODEL SYSINFO_BOARD_NAME DISTROCONFIG_EXTRA PI5_DTO_OVERLAY
 
 FAT32_BLOCK_SIZE=1024
 FAT32_BLOCKS=$(shell echo $$(($(CONFIG_TARGET_KERNEL_PARTSIZE)*1024*1024/$(FAT32_BLOCK_SIZE))))
@@ -79,6 +79,14 @@ define Build/boot-ekh01
 
 	echo -e '\ndtoverlay=sysinfo,board-name="$(SYSINFO_BOARD_NAME)",model="$(SYSINFO_MODEL)"' | cat boards/ekh01/distroconfig.txt boards/ekh01/distroconfig-$(DISTROCONFIG_EXTRA).txt - | mcopy -o -i $@.boot - ::/distroconfig.txt
 
+endef
+
+define Build/boot-ekh01-pi5
+	# Pi 5 firmware did not apply the product overlays from the included
+	# distroconfig.txt during hardware testing. Keep the Pi 5 base settings in
+	# distroconfig.txt, but place the product overlays directly in config.txt.
+	mcopy -o -i $@.boot boards/ekh01/distroconfig-pi5.txt ::/distroconfig.txt
+	echo -e '\n[all]\ndtoverlay=$(PI5_DTO_OVERLAY)\ndtoverlay=sysinfo,board-name="$(SYSINFO_BOARD_NAME)",model="$(SYSINFO_MODEL)"' | cat config.txt - | mcopy -o -i $@.boot - ::/config.txt
 endef
 
 define Build/sdcard-img
@@ -341,6 +349,36 @@ define Device/bcm2711_raven
 endef
 ifeq ($(SUBTARGET),bcm2711)
   TARGET_DEVICES += bcm2711_raven
+endif
+
+define Device/morse_pi5_base
+  $(Device/rpi-5)
+  SYSINFO_BOARD_NAME := $(subst _,$(comma),$(1))
+  SUPPORTED_DEVICES := $$(SYSINFO_BOARD_NAME)
+  DEVICE_VENDOR := RPI
+  IMAGES := sysupgrade.img.gz
+  # Simplify by removing board and OpenWRT version.
+  IMAGE_PREFIX = $$(VERSION_DIST_SANITIZED)-$$(IMG_PREFIX_VERCODE)$$(IMG_PREFIX_EXTRA)$$(call sanitize,$$(DEVICE_MODEL)-$$(DEVICE_VARIANT))
+  DEVICE_IMG_NAME = $$(IMAGE_PREFIX)-$$(1)-$$(2)
+  # RPi 5 has no GPU firmware files (no boot-2711 step needed).
+  IMAGE/sysupgrade.img.gz := boot-common | boot-ekh01 | sdcard-img | gzip | append-metadata
+  IMAGE/factory.img.gz := boot-common | boot-ekh01 | sdcard-img | gzip
+endef
+
+define Device/bcm2712_mm6108-spi
+  $(Device/morse_pi5_base)
+  DEVICE_MODEL := RPI5-MM6108
+  DEVICE_VARIANT := SPI
+  SYSINFO_MODEL := $$(DEVICE_VENDOR) $$(DEVICE_MODEL) ($$(DEVICE_VARIANT))
+  DEVICE_PACKAGES += \
+	kmod-mm6108 netifd-morse mm6108-firmware
+  SUPPORTED_DEVICES += bcm2712,mm6108-spi
+  PI5_DTO_OVERLAY := mm610x-spi-pi5
+  IMAGE/sysupgrade.img.gz := boot-common | boot-ekh01-pi5 | sdcard-img | gzip | append-metadata
+  IMAGE/factory.img.gz := boot-common | boot-ekh01-pi5 | sdcard-img | gzip
+endef
+ifeq ($(SUBTARGET),bcm2712)
+  TARGET_DEVICES += bcm2712_mm6108-spi
 endif
 
 define Device/bcm2710_mm6108-spi

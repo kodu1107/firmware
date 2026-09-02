@@ -1,0 +1,27 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: OpenMANET Pi 5 port <noreply@openmanet.local>
+Date: Tue, 11 Aug 2026 00:00:00 +0000
+Subject: [PATCH] bsp-bcm271x: accept RP1 Morse SPI path
+
+Raspberry Pi 5 exposes header SPI0 through RP1 instead of the legacy
+BCM2711 SPI controller path.
+---
+ boards/bsp-bcm271x/files/etc/init.d/gpsboard.init | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/feeds/openmanet/boards/bsp-bcm271x/files/etc/init.d/gpsboard.init b/feeds/openmanet/boards/bsp-bcm271x/files/etc/init.d/gpsboard.init
+--- a/feeds/openmanet/boards/bsp-bcm271x/files/etc/init.d/gpsboard.init
++++ b/feeds/openmanet/boards/bsp-bcm271x/files/etc/init.d/gpsboard.init
+@@ -68,7 +68,8 @@ check_morse_section() {
+         if [ -z "$device_path" ]; then
+             logger -t "$NAME" "morse wifi-device found but path does not exist"
+             exit 0
+-        elif [ "$device_path" != "$expected_path" ]; then
++        elif [ "$device_path" != "$expected_path" ] &&
++             [ "$device_path" != "platform/axi/1000120000.pcie/1f00050000.spi/spi_master/spi0/spi0.0" ]; then
+             logger -t "$NAME" "morse wifi-device path does not match: got '$device_path', expected '$expected_path'"
+             exit 0
+         fi
+-- 
+2.51.0
+
